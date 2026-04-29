@@ -570,7 +570,12 @@ function openAddCatModal(){
 
 function resetCarryovers(){
   if(!confirm('全カテゴリの繰越額をリセットしますか？\nこの操作は元に戻せません。'))return;
+  const y=state.currentYear,m=state.currentMonth;
   state.carryovers={};
+  state.categories.forEach(c=>{
+    if(!state.carryovers[c.id])state.carryovers[c.id]={};
+    state.carryovers[c.id][monthKey(y,m)]=0;
+  });
   save();render();
   alert('繰越額をリセットしました。');
 }
