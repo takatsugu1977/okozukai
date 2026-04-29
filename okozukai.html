@@ -7,6 +7,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="お小遣い帳">
 <title>お小遣い帳</title>
+<script>
+// キャッシュ自動回避
+(function(){
+  var v='20260429001';
+  if(location.search.indexOf('nocache='+v)===-1){
+    location.replace(location.pathname+'?nocache='+v);
+  }
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -191,6 +200,21 @@ body{
   width:100%;
 }
 .empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:14px}
+.cat-card{cursor:pointer;transition:opacity 0.15s;}
+.cat-card:active{opacity:0.75;}
+.sort-btn{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--surface2);border:1px solid var(--border);
+  cursor:pointer;color:var(--text2);font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+}
+.sort-btn:disabled{opacity:0.3;cursor:default;}
+.detail-back{
+  display:flex;align-items:center;gap:6px;
+  background:none;border:none;cursor:pointer;
+  color:var(--accent);font-size:15px;font-weight:500;
+  margin-bottom:16px;padding:0;
+}
 /* Modal */
 .overlay{
   display:none;position:fixed;inset:0;
@@ -380,7 +404,7 @@ function render(){
         const pct=effBudget>0?Math.min(100,Math.round(spent/effBudget*100)):0;
         const color=pct>=100?'#c0392b':pct>=80?'#c67c00':'#2d5a3d';
         h+=`
-        <div class="cat-card">
+        <div class="cat-card" onclick="openCatDetail('${c.id}')">
           <div class="cat-header">
             <span class="cat-name">${c.name}</span>
             <div class="cat-amounts">
@@ -428,7 +452,7 @@ function render(){
     if(cats.length===0){
       h+=`<div style="padding:16px 0;color:var(--text3);font-size:14px;text-align:center">カテゴリがありません</div>`;
     }
-    cats.forEach(c=>{
+    cats.forEach((c,idx)=>{
       h+=`
       <div class="setting-row">
         <div class="setting-left">
@@ -441,7 +465,9 @@ function render(){
             余りを翌月に繰り越す
           </div>
         </div>
-        <div class="setting-right">
+        <div class="setting-right" style="gap:6px">
+          <button class="sort-btn" onclick="moveCat(${idx},-1)" ${idx===0?'disabled':''}>↑</button>
+          <button class="sort-btn" onclick="moveCat(${idx},1)" ${idx===cats.length-1?'disabled':''}>↓</button>
           <button class="budget-btn" onclick="openBudgetModal('${c.id}')">¥${Math.round(c.budget).toLocaleString()}</button>
           <button class="del-btn" onclick="deleteCategory('${c.id}')">✕</button>
         </div>
@@ -568,6 +594,61 @@ function openAddCatModal(){
     <button class="btn-cancel" onclick="closeSheet()">キャンセル</button>
     <button class="btn-ok" onclick="addCategory()">追加する</button>
   </div>`);
+}
+
+function openCatDetail(catId){
+  const y=state.currentYear,m=state.currentMonth;
+  const cat=state.categories.find(c=>c.id===catId);
+  const exps=getExpenses(y,m).filter(e=>e.catId===catId).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const carry=getCarryover(catId,y,m);
+  const effBudget=cat.budget+carry;
+  const spent=getCatSpent(catId,y,m);
+  const remain=effBudget-spent;
+  let rows='';
+  if(exps.length===0){
+    rows=`<div class="empty">支出はまだありません</div>`;
+  } else {
+    rows=`<div class="exp-card">`;
+    exps.forEach(e=>{
+      rows+=`<div class="expense-row">
+        <div class="exp-left">
+          <div class="exp-memo">${e.memo||'(メモなし)'}</div>
+          <div class="exp-meta">${e.date}</div>
+        </div>
+        <div class="exp-right">
+          <span class="exp-amount">${fmtYen(e.amount)}</span>
+          <button class="exp-del" onclick="deleteExpenseAndRefresh('${e.id}','${catId}')">✕</button>
+        </div>
+      </div>`;
+    });
+    rows+=`</div>`;
+  }
+  openSheet(`
+    <button class="detail-back" onclick="closeSheet()">← 予算一覧に戻る</button>
+    <h3>${cat.name}</h3>
+    <div class="summary-grid" style="margin-bottom:16px">
+      <div class="metric"><div class="metric-label">予算</div><div class="metric-value">${fmtYen(effBudget)}</div></div>
+      <div class="metric"><div class="metric-label">使用</div><div class="metric-value">${fmtYen(spent)}</div></div>
+      <div class="metric"><div class="metric-label">残り</div><div class="metric-value ${remain<0?'danger':'success'}">${fmtYen(remain)}</div></div>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:var(--text3);margin-bottom:8px">支出一覧</div>
+    ${rows}
+  `);
+}
+
+function deleteExpenseAndRefresh(expId,catId){
+  if(!confirm('この支出を削除しますか？'))return;
+  state.expenses=state.expenses.filter(e=>e.id!==expId);
+  save();
+  openCatDetail(catId);
+}
+
+function moveCat(idx,dir){
+  const cats=state.categories;
+  const newIdx=idx+dir;
+  if(newIdx<0||newIdx>=cats.length)return;
+  const tmp=cats[idx];cats[idx]=cats[newIdx];cats[newIdx]=tmp;
+  save();render();
 }
 
 function resetCarryovers(){
