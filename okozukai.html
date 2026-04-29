@@ -447,6 +447,14 @@ function render(){
     });
     h+=`</div>`;
     h+=`<button class="add-cat-btn" onclick="openAddCatModal()"><span style="font-size:20px">+</span> カテゴリを追加</button>`;
+    h+=`<div class="section-label" style="margin-top:24px">データ管理</div>`;
+    h+=`<div class="settings-card"><div class="setting-row">
+      <div class="setting-left">
+        <div class="setting-name" style="color:var(--danger)">繰越額をリセット</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">全カテゴリの繰越残高をゼロにする</div>
+      </div>
+      <button class="del-btn" style="width:auto;padding:6px 12px;border-radius:var(--radius-sm);font-size:13px" onclick="resetCarryovers()">リセット</button>
+    </div></div>`;
     content.innerHTML=h;
   }
 }
@@ -558,6 +566,13 @@ function openAddCatModal(){
     <button class="btn-cancel" onclick="closeSheet()">キャンセル</button>
     <button class="btn-ok" onclick="addCategory()">追加する</button>
   </div>`);
+}
+
+function resetCarryovers(){
+  if(!confirm('全カテゴリの繰越額をリセットしますか？\nこの操作は元に戻せません。'))return;
+  state.carryovers={};
+  save();render();
+  alert('繰越額をリセットしました。');
 }
 
 function addCategory(){
